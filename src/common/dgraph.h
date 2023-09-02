@@ -64,6 +64,7 @@ typedef  struct{
     vwType maxVW;
     ecType maxEC;
 
+    idxType *inEdgeToDfv; // each edge corresponds to a dfv
 } dgraph;
 
 void buildPartmatrix(dgraph *G, idxType * part, idxType nbpart, ecType** partmatrix);

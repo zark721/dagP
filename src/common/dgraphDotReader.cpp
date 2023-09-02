@@ -32,9 +32,11 @@ int readDGraphDot(dgraph *G, char* file_name)
     char line[DOT_LINE_MAX];
     idxType nVrtx = 0, nEdge = 0;
     idxType i, j;
-    idxType* nbneighbors=NULL;
-    idxType** inneighbors=NULL;
-    ecType** ecInNeighbors = NULL;
+    idxType* nbneighbors=NULL; // 每个节点的父节点个数，比如V0->V1，则V0是V1的父节点
+    idxType** inneighbors=NULL; // 记录每个节点的父节点，inneighbors[0]表示节点V0的所有父节点
+    // TODO: ecInNeighbors不用释放内存？
+    ecType** ecInNeighbors = NULL; // 记录每个父节点与当前节点的边权重，与inneighbors数组一一对应。比如ecInNeighbors[0][0]表示 V[inneighbors[0][0]]-> V0的边权重
+    idxType** dfvInNeighbors = NULL; // 记录每条边对应的dfv
     std::map <std::string, int> nodeNameMap;
     std::vector <int> vweights;
     vweights.reserve(1000);
@@ -99,9 +101,11 @@ int readDGraphDot(dgraph *G, char* file_name)
                     nbneighbors = (idxType*) calloc(nVrtx+1, sizeof(idxType));
                     inneighbors = (idxType**) malloc((nVrtx+1) * sizeof(idxType*));
                     ecInNeighbors = (ecType**) malloc((nVrtx+1) * sizeof(ecType*));
+                    dfvInNeighbors = (idxType**) malloc((nVrtx+1) * sizeof(idxType*));
                     for (i = 1; i <= nVrtx; i++){
                         inneighbors[i] = (idxType*) malloc(100 * sizeof(idxType));
                         ecInNeighbors[i] = (ecType*) malloc(100 * sizeof(ecType));
+                        dfvInNeighbors[i] = (idxType*) malloc(100 * sizeof(idxType));
                     }
                 }
                 char* token = strtok(line, delims);
@@ -135,9 +139,13 @@ int readDGraphDot(dgraph *G, char* file_name)
                     ecInNeighbors[v1+1] = (ecType*) realloc (ecInNeighbors[v1+1], (nbneighbors[v1+1] + 101) * sizeof(ecType));
                     if (ecInNeighbors == NULL)
                         printf("realloc failed for ecInNeighbors\n");
+                    dfvInNeighbors[v1+1] = (idxType*) realloc (dfvInNeighbors[v1+1], (nbneighbors[v1+1] + 101) * sizeof(idxType));
+                    if (dfvInNeighbors == NULL)
+                        printf("realloc failed for dfvInNeighbors\n");
                 }
                 inneighbors[v1+1][nbneighbors[v1+1]] = v2+1;
                 ecInNeighbors[v1+1][nbneighbors[v1+1]] = w;
+                dfvInNeighbors[v1+1][nbneighbors[v1+1]] = nEdge-1;
                 nbneighbors[v1+1]++;
             } else { /* it is a vertex */
                 if(readForNodes == 0)
@@ -189,13 +197,17 @@ int readDGraphDot(dgraph *G, char* file_name)
     G->totvw = nVrtx;
     G->maxindegree = 0;
     G->hollow  = (int * ) calloc(nVrtx + 2, sizeof(int));
-    G->inStart  = (idxType * ) calloc(nVrtx + 2, sizeof(idxType));
-    G->inEnd= (idxType * ) malloc(sizeof(idxType) * (nVrtx + 2));
-    G->in = (idxType * ) malloc(sizeof(idxType) * nEdge);
+    G->inStart  = (idxType * ) calloc(nVrtx + 2, sizeof(idxType)); // 记录所有节点的入边起始位置，G->inStart[0]=10表示与V0关联的入边(Vx->V0)在G->in和G->ecIn的起始下标为10.
+    G->inEnd= (idxType * ) malloc(sizeof(idxType) * (nVrtx + 2)); // 记录所有节点的入边结束位置，G->inEnd[0]=20表示与V0关联的入边(Vx->V0)在G->in和G->ecIn的起始结束为20，所以V0关联的入边范围是10~20.
+    G->in = (idxType * ) malloc(sizeof(idxType) * nEdge); // 记录所有边的 父节点
+    G->inEdgeToDfv = (idxType * ) malloc(sizeof(idxType) * nEdge); // 记录边对应的dfv
     idxType idx = 0, degree;
-    G->ecIn = (ecType *) malloc(sizeof(ecType) * nEdge);
-    G->ecOut = (ecType *) malloc(sizeof(ecType) * nEdge);
-
+    G->ecIn = (ecType *) malloc(sizeof(ecType) * nEdge); // 记录所有边的 权重
+    // -------Function block starts ----------
+    /* 
+        1. 记录每个节点Vx对应的入边在G->in和G->ecIn中的位置，范围是G->inStart[x] ~ G->inEnd[x]
+        2. 求出每个节点的最大入度G->maxindegree
+    */
     for (i=1; i<=nVrtx; i++) {
         G->inStart[i] = idx;
         G->inEnd[i-1] = idx-1;
@@ -205,7 +217,8 @@ int readDGraphDot(dgraph *G, char* file_name)
         }
         for (j=0; j< nbneighbors[i]; j++) {
             G->ecIn[idx] = ecInNeighbors[i][j];
-            G->in[idx++] = inneighbors[i][j];
+            G->in[idx] = inneighbors[i][j];
+            G->inEdgeToDfv[idx++] = dfvInNeighbors[i][j];
         }
     }
     G->inStart[0] = 0;
@@ -215,6 +228,8 @@ int readDGraphDot(dgraph *G, char* file_name)
     G->inStart[nVrtx+1] = nEdge;
     degree = G->inEnd[nVrtx] - G->inStart[nVrtx] + 1;
     G->maxindegree = G->maxindegree < degree ? degree : G->maxindegree;
+    // -------Function block ends----------
+    // -------Function block starts----------
     if (nEdge <= 0)
         u_errexit("allocateDGraphData: empty edge set\n");
 
@@ -224,27 +239,31 @@ int readDGraphDot(dgraph *G, char* file_name)
     G->outStart  = (idxType * ) malloc(sizeof(idxType) * (nVrtx + 2));
     G->outEnd  = (idxType * ) malloc(sizeof(idxType) * (nVrtx + 2));
     G->out = (idxType * ) malloc(sizeof(idxType) * nEdge);
+    G->ecOut = (ecType *) malloc(sizeof(ecType) * nEdge);
 
+    fillOutFromIn(G);// 记录每个点的出边，以及出边的权重
+    // -------Function block ends----------
     G->vw = (vwType *) malloc(sizeof(vwType) * (nVrtx+1));
     for (i=1; i<=nVrtx; i++)
         G->vw[i] = vweights[i-1];
-
-    fillOutFromIn(G);
 
     G->sources  = (idxType * ) malloc(sizeof(idxType) * (nVrtx + 1));
     G->targets  = (idxType * ) malloc(sizeof(idxType) * (nVrtx + 1));
     G->nbsources = 0;
     G->nbtargets = 0;
     for (i=1; i<=nVrtx; i++){
-        if (G->inEnd[i] < G->inStart[i])
+        if (G->inEnd[i] < G->inStart[i]) // 没有入边
             G->sources[G->nbsources++] = i;
-        if (G->outEnd[i] < G->outStart[i])
+        if (G->outEnd[i] < G->outStart[i]) // 没有出边
             G->targets[G->nbtargets++] = i;
     }
 
-    for (i = 1; i <= nVrtx; i++)
+    for (i = 1; i <= nVrtx; i++) {
         free(inneighbors[i]);
+        free(dfvInNeighbors[i]);
+    }
     free(nbneighbors);
     free(inneighbors);
+    free(dfvInNeighbors);
     return 0;
 }
