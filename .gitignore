@@ -1,0 +1,9 @@
+exe/
+lib/
+out/
+plot/
+data/
+*.o
+*.dot
+.sconsign.dblite
+.vscode/
