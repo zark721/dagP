@@ -114,7 +114,7 @@ tar_message = '%sCreating Tar Archive %s==> %s$TARGET%s' % \
    (colors['red'], colors['purple'], colors['darkmagenta'], colors['end'])
 
 
-include = "#/src/common:#/src/recBisection".split(':')
+include = "#/src/common:#/src/recBisection:#/src/dfcpp_dagP_port".split(':')
 lib = "#/lib"
 bin = "#/exe"
 
@@ -251,7 +251,7 @@ dgraphlibsrcs = Split("""common/dgraph.c common/dgraphTraversal.c
   common/dgraphReader.c common/dgraphDotReader.cpp
   recBisection/vcycle2way.c recBisection/initialBisection.c
   recBisection/rvcycle.c recBisection/dgraphBisection.c recBisection/refinementBis.c
-  recBisection/dagP.c""")
+  recBisection/dagP.c dfcpp_dagP_port/dfcpp_dagP_port.cpp""")
 
 dgraphlibsrcs = [os.path.join('#/src', x) for x in dgraphlibsrcs]
 
