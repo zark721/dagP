@@ -424,7 +424,92 @@ void setVertexWeights(dgraph *G, vwType *vw)
     }
 
 }
+int getTopoOrder(dgraph *G, idxType *part, idxType nbpart, int* topoOrder) {
+    // This method is mainly copied from method `checkAcyclicity`
+   // Caller must allocate topoOrder array before calling.
+   idxType i, j, k, ip;
+    idxType** outpart = (idxType**) malloc(sizeof(idxType*)*nbpart);
+    idxType* nbout = (idxType*) malloc(sizeof(idxType)*nbpart);
+    idxType** inpart = (idxType**) malloc(sizeof(idxType*)*nbpart);
+    idxType* nbin = (idxType*) malloc(sizeof(idxType)*nbpart);
+    for (i=0; i<nbpart; i++) {
+        outpart[i] = (idxType*) malloc(sizeof(idxType)*nbpart);
+        nbout[i] = 0;
+        inpart[i] = (idxType*) malloc(sizeof(idxType)*nbpart);
+        nbin[i] = 0;
+    }
+    int isAcyclic = 1;
 
+    for (i=1; i<=G->nVrtx; i++) {
+        for (j=G->outStart[i]; j<=G->outEnd[i]; j++) {
+            idxType outnode = G->out[j];
+            if (part[i] == part[outnode])
+                continue;
+
+            int is_new = 1;
+            for (k=0; k<nbout[part[i]]; k++)
+                if (outpart[part[i]][k] == part[outnode]) {
+                    is_new = 0;
+                    break;
+                }
+
+            if (is_new == 1) {
+                outpart[part[i]][nbout[part[i]]] = part[outnode];
+                nbout[part[i]]++;
+            }
+
+            is_new = 1;
+            for (k=0; k<nbin[part[outnode]]; k++)
+                if (inpart[part[outnode]][k] == part[i]) {
+                    is_new = 0;
+                    break;
+            }
+
+            if (is_new == 1) {
+                inpart[part[outnode]][nbin[part[outnode]]] = part[i];
+                nbin[part[outnode]]++;
+            }
+        }
+    }
+
+    idxType* ready = (idxType*) malloc(sizeof(idxType)*(nbpart));
+    idxType* nbinleft = (idxType*) malloc(sizeof(idxType)*(nbpart));
+    int nbready = 0;
+    for (i=0; i<nbpart; i++) {
+        nbinleft[i] = nbin[i];
+        if (nbin[i] == 0)
+            ready[nbready++] = i;
+    }
+
+    int to = 0;
+    while (nbready > 0) {
+        idxType pno = ready[nbready-1];
+        nbready--;
+        //to++;
+        topoOrder[to++] = pno;
+        for (ip = 0; ip < nbout[pno]; ip++) {
+            idxType succ = outpart[pno][ip];
+            nbinleft[succ]--;
+            if (nbinleft[succ] == 0) {
+                ready[nbready++] = succ;
+            }
+        }
+    }
+    for (i=0; i<nbpart; i++) {
+        free(outpart[i]);
+        free(inpart[i]);
+    }
+    free(nbinleft);
+    free(ready);
+    free(nbin);
+    free(nbout);
+    free(inpart);
+    free(outpart);
+    if (to != nbpart) {
+        isAcyclic = 0;
+    }
+    return isAcyclic; 
+}
 int checkAcyclicity(dgraph *G, idxType *part, idxType nbpart)
 {
     idxType i, j, k, ip;

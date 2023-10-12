@@ -14,8 +14,21 @@ void free_dfcpp_partition_result(std::vector<DfcppPartitionResult*>& result) {
 */
 std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nParts) {
     std::vector<DfcppPartitionResult*> result;
+    int* topoOrder = new int[nParts];
+    int* mapToNewIndex = new int[nParts];
+    int isAcyclic = getTopoOrder(G, parts, nParts, topoOrder);
+    if (isAcyclic == 0) {
+        printf("ERROR : the partition is acyclic.\n");
+        exit(1);
+    }
     for (int i=0; i<nParts; i++) {
-        result.push_back(new DfcppPartitionResult());
+        mapToNewIndex[topoOrder[i]] = i;
+        printf("old : %d, new = %d\n", topoOrder[i], i);
+    }
+
+
+    for (int i=0; i<nParts; i++) {
+        result.push_back(new DfcppPartitionResult(nParts));
     }
     // arrays from G included parts is indexed from 1
     int nVrtx = G->nVrtx, fromNode;
@@ -24,20 +37,24 @@ std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nPa
     idxType* in = G->in;
     idxType* inEdgeToDfv = G->inEdgeToDfv;
     for (int i=1; i<=nVrtx; i++) {
-        result[parts[i]]->nodes.push_back(i-1); // node index and dfv index in DFCPP is from 0
+        int partToNew = mapToNewIndex[parts[i]];
+        result[partToNew]->nodes.push_back(i-1); // node index and dfv index in DFCPP is from 0
         for (int j=inStart[i]; j<=inEnd[i]; j++) {
             fromNode = in[j];
+            int partFromNew = mapToNewIndex[parts[fromNode]];
             // the nodes between edge are not in the same partition
-            if (parts[fromNode] != parts[i]) {
-                result[parts[i]]->inDfvs.push_back(inEdgeToDfv[j]);
-                result[parts[fromNode]]->outDfvs.push_back(inEdgeToDfv[j]);
+            if (partFromNew != partToNew) {
+                result[partToNew]->inDfvs.push_back(inEdgeToDfv[j]);
+                result[partFromNew]->outDfvs.push_back(inEdgeToDfv[j]);
+                result[partFromNew]->outEdges[partToNew]++;
+                result[partToNew]->inDegree++;
             }
         }
     }
     #if 1
     printf("----------------Partion Result for DFCPP----------------------\n");
     for (int i=0; i<nParts; i++) {
-        printf("Partition %2d: \n", i);
+        printf("#Partition %2d: inDegree = %d\n", i, result[i]->inDegree);
         printf("\tNodes: ");
         for (unsigned long int j=0; j<result[i]->nodes.size(); j++) {
             printf("%d, ", result[i]->nodes[j]);
@@ -54,10 +71,27 @@ std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nPa
             printf("%d, ", result[i]->outDfvs[j]);
         }
         printf("totally %lu dfvs.\n", result[i]->outDfvs.size());
+
+        printf("\tOut Edges to other partitions:\n");
+        for (int j=0; j<nParts; j++) {
+            if (j%10 == 0) {
+                printf("\t\t");
+            }
+            printf(" ---> %d edges = %d, ", j, result[i]->outEdges[j]);
+            if ((j+1)%10 == 0) {
+                printf("\n");
+            }
+        }
+        if (nParts % 10 != 0) {
+            printf("\n");
+        }
     }
     printf("--------------------------------------------------------------\n");
     #endif
     
+
+    delete[] topoOrder; 
+    delete[] mapToNewIndex; 
     return result;
 }
 /*

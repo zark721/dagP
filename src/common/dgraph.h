@@ -84,6 +84,7 @@ void set_dgraph_info(dgraph* G);
 idxType sourcesList(dgraph *G, idxType* sources);
 idxType sourcesListPart(dgraph* G, idxType* sources, idxType *part, int part_idx);
 idxType outputList(dgraph *G, idxType* outputs);
+int getTopoOrder(dgraph *G, idxType *part, idxType nbpart, int* topoOrder);
 int checkAcyclicity(dgraph *G, idxType *part, idxType nbpart);
 void oneDegreeFirst(dgraph* G, idxType* order);
 idxType farthestNode(dgraph* G, idxType startnode);
