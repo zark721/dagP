@@ -16,6 +16,6 @@ public:
         totOutEdges = 0;
     }
 };
-std::vector<DfcppPartitionResult*> dfcpp_graph_partition_by_dagP(char* graphFileName, int nParts);
+std::vector<DfcppPartitionResult*> dfcpp_graph_partition_by_dagP(char* graphFileName, int nParts, int* totEdges);
 void free_dfcpp_partition_result(std::vector<DfcppPartitionResult*>& result);
 #endif
