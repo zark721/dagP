@@ -23,7 +23,7 @@ std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nPa
     }
     for (int i=0; i<nParts; i++) {
         mapToNewIndex[topoOrder[i]] = i;
-        printf("old : %d, new = %d\n", topoOrder[i], i);
+        //printf("old : %d, new = %d\n", topoOrder[i], i);
     }
 
 
@@ -47,6 +47,7 @@ std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nPa
                 result[partToNew]->inDfvs.push_back(inEdgeToDfv[j]);
                 result[partFromNew]->outDfvs.push_back(inEdgeToDfv[j]);
                 result[partFromNew]->outEdges[partToNew]++;
+                result[partFromNew]->totOutEdges++;
                 result[partToNew]->inDegree++;
             }
         }
@@ -85,6 +86,7 @@ std::vector<DfcppPartitionResult*> dfcpp_port(dgraph* G, idxType* parts, int nPa
         if (nParts % 10 != 0) {
             printf("\n");
         }
+        printf("\tTotal out edges = %d\n", result[i]->totOutEdges);
     }
     printf("--------------------------------------------------------------\n");
     #endif

@@ -8,10 +8,12 @@ public:
     std::vector<int> outDfvs; // index from 0
     std::vector<int> outEdges; // index denotes node, value denotes out edges amount.
     int inDegree;
+    int totOutEdges;
     DfcppPartitionResult(int nParts) {
         std::vector<int> tmp(nParts, 0);
         outEdges.insert(outEdges.end(), tmp.begin(), tmp.end());
         inDegree = 0;
+        totOutEdges = 0;
     }
 };
 std::vector<DfcppPartitionResult*> dfcpp_graph_partition_by_dagP(char* graphFileName, int nParts);
